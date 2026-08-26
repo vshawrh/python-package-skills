@@ -5,7 +5,7 @@ description: >-
   (builder/ and/or rhai-pipeline/). Analyzes package information, AI packaging
   analysis, and optional build failure details to configure the package, then
   creates one or two git commits depending on mode.
-allowed-tools: Bash Read Grep Glob
+allowed-tools: Bash Read Grep Glob Skill
 metadata:
   author: ODH
   version: "1.0"
@@ -54,8 +54,10 @@ See `references/output-format.md` for the full output contract.
 
 6. **Builder workflow.**
    - Read `builder/AGENTS.md` (and root `AGENTS.md` if present); follow them.
+   - **Settings generation.** Use the `/package-settings` skill to generate the settings YAML. It handles `changelog` entries, `annotations`, and ABI tag analysis systematically. Every new settings file MUST include a `changelog` section or the CI linter will reject it.
+   - **Plugin decision.** Read `.agents/builder/plugins/hook-decision-tree.md` to determine whether the package needs a plugin (e.g. `prepare_source` for source patching or submodule fetching; `get_build_system_dependencies` for extra build deps; `update_extra_environ` for hardware-specific env vars). If the package pins `torch` or another dependency to a version that conflicts with the builder constraints, create a `prepare_source` plugin to relax the conflicting pin. If a plugin is needed, read `.agents/builder/plugins/hook-patterns.md` and study existing plugins in `builder/package_plugins/` as reference. Register every new plugin in `builder/pyproject.toml` under `[project.entry-points."fromager.project_overrides"]`.
+   - If you set `resolver_dist.include_sdists: false` and `include_wheels: false` in the package settings, you must also create a `get_resolver_provider` plugin to provide alternative version resolution. Without it, fromager cannot find versions. See existing plugins (e.g. `ctranslate2.py`) in `builder/package_plugins/` as reference.
    - Configure the package under `builder/` only (do not hand-edit `.gitlab-triggers.yaml`).
-   - If you set `resolver_dist.include_sdists: false` and `include_wheels: false` in the package settings, you must also create a `get_resolver_provider` plugin to provide alternative version resolution. Without it, fromager cannot find versions. See existing plugins (e.g. `ctranslate2.py`) in `builder/package_plugins/` as reference. Register every new plugin in `builder/pyproject.toml` under `[project.entry-points."fromager.plugins"]`.
    - Run `make linter` (rule 2). This auto-generates `.gitlab-triggers.yaml`.
    - Once lint passes and the tree is clean, stage with `git add -A -- builder/ .gitlab-triggers.yaml :!_run` and commit. Always include `.gitlab-triggers.yaml`. Never stage `rhai-pipeline/` or `_run/`.
    - After committing, run `make linter` again; amend with `git commit -a --amend --no-edit` if it modifies files. Repeat until clean.
@@ -100,6 +102,8 @@ Complete all steps in one session without stopping to describe remaining work.
 - Running builder steps in `pipeline-only` mode
 - Using the trigger/repo name instead of the canonical Python package name from `pyproject.toml`/PyPI
 - Disabling `include_sdists` and `include_wheels` in resolver_dist without creating a `get_resolver_provider` plugin
+- Creating a settings YAML without a `changelog` entry (the CI settings-changelog-linter rejects it)
+- Skipping the hook decision tree and omitting a needed `prepare_source` plugin (e.g. when the package pins dependencies like `torch==X.Y` that conflict with the builder's constraints)
 
 ## Example (pipeline-only)
 
