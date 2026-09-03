@@ -1,0 +1,7 @@
+notes: >-
+  Regression case for a package whose PyPI metadata uses the generic BSD
+  classifier. The upstream LICENSE is BSD-3-Clause and redistribution is
+  compatible.
+expected_verdict: compatible
+expected_license: BSD-3-Clause
+expected_compatible: true
